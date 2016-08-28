@@ -1,0 +1,39 @@
+name:                warp-socket-activation
+version:             0.1.0.0
+synopsis:            A simple wrapper for socket based activation.
+license:             BSD3
+license-file:        LICENSE
+author:              Al Zohali
+maintainer:          Al Zohali <zohl@fmap.me>
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+
+flag dev
+  description:        Turn on development settings.
+  manual:             True
+  default:            False
+
+
+library
+  exposed-modules:     Network.Wai.Handler.Warp.SocketActivation
+  other-extensions:
+  build-depends: base >=4.7 && < 5.0
+               , bytestring
+               , data-default
+               , exceptions
+               , http-types
+               , network
+               , transformers
+               , streaming-commons
+               , systemd
+               , unix
+               , wai
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+  if flag(dev)
+    ghc-options:      -Wall -Werror
+  else
+    ghc-options:      -O2 -Wall
