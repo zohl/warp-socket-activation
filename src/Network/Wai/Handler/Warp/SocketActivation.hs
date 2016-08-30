@@ -3,6 +3,19 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-|
+  Module:      Network.Wai.Handler.Warp.SocketActivation
+  Copyright:   (c) 2016 Al Zohali
+  License:     BSD3
+  Maintainer:  Al Zohali <zohl@fmap.me>
+  Stability:   experimental
+
+
+  = Description
+  A simple wrapper for socket based activation.
+-}
+
+
 module Network.Wai.Handler.Warp.SocketActivation (
     SocketActivationSettings(..)
   , SocketActivationException(..)
@@ -12,7 +25,7 @@ module Network.Wai.Handler.Warp.SocketActivation (
 
 import Control.Exception.Base (Exception, bracket)
 import Control.Monad.Catch (MonadThrow (..), catch, throwM)
-import Control.Monad.IO.Class
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Default (Default, def)
 import Data.Streaming.Network (bindPortTCP, HostPreference)
 import Data.Typeable (Typeable)
@@ -20,11 +33,15 @@ import Network.Socket (Socket, fdSocket, close)
 import System.Posix.IO (FdOption(CloseOnExec), setFdOption)
 import System.Posix.Internals (setNonBlockingFD)
 import System.Systemd.Daemon (getActivatedSockets)
-
   
+
+-- | Options that determine activation mechanism.
 data SocketActivationSettings = SocketActivationSettings {
     sasPort :: Maybe Int 
+    -- ^ Fallback port to use when the application is started without systemd socket.
+
   , sasHostPreference :: HostPreference
+    -- ^ Fallback host preference.
   }
 
 instance Default SocketActivationSettings where
@@ -33,20 +50,26 @@ instance Default SocketActivationSettings where
     , sasHostPreference = "*"
     }
 
+-- | The exception is thrown when something goes wrong with this package.
 data SocketActivationException
      = NoSocketsActivated
+     -- ^ Thrown when the application is started without systemd
+     -- socket and no fallback port is specified.
      | MultipleSocketsActivated Int
+     -- ^ Thrown when more than one systemd socket activated the
+     -- application.
 
     deriving (Eq, Show, Typeable)
 
 instance (Exception SocketActivationException)
 
-
+-- | Wrapper for socket-activated function.
 withSocketActivation :: SocketActivationSettings -> (Socket -> IO a) -> IO a
 withSocketActivation set f = catch (withSocketActivationM set f) $
   \(ex :: SocketActivationException) -> error $ show ex
 
 
+-- | Wrapper for socket-activated function.
 withSocketActivationM :: (MonadIO m, MonadThrow m)
   => SocketActivationSettings
   -> (Socket -> IO a)
