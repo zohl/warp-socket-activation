@@ -25,7 +25,7 @@ module Network.Wai.Handler.Warp.SocketActivation (
   ) where
 
 import Control.Exception.Base (Exception, bracket)
-import Control.Monad.Catch (MonadThrow (..), catch, throwM)
+import Control.Monad.Catch (MonadThrow(..), catch, throwM)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Default (Default, def)
 import Data.Streaming.Network (bindPortTCP, HostPreference)
