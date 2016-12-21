@@ -37,18 +37,22 @@ import System.Systemd.Daemon (getActivatedSockets)
   
 
 -- | Options that determine activation mechanism.
-data SocketActivationSettings = SocketActivationSettings {
+data SocketActivationSettings a = SocketActivationSettings {
     sasPort :: Maybe Int 
     -- ^ Fallback port to use when the application is started without systemd socket.
 
   , sasHostPreference :: HostPreference
     -- ^ Fallback host preference.
+
+  , sasFallbackResult :: Maybe a
+    -- ^ When no sockets are activated, return provided value or throw exception.
   }
 
-instance Default SocketActivationSettings where
+instance Default (SocketActivationSettings a) where
   def = SocketActivationSettings {
       sasPort = Nothing
     , sasHostPreference = "*"
+    , sasFallbackResult = Nothing
     }
 
 -- | The exception is thrown when something goes wrong with this package.
@@ -65,21 +69,22 @@ data SocketActivationException
 instance (Exception SocketActivationException)
 
 -- | Wrapper for socket-activated function.
-withSocketActivation :: SocketActivationSettings -> (Socket -> IO a) -> IO a
+withSocketActivation :: SocketActivationSettings a -> (Socket -> IO a) -> IO a
 withSocketActivation set f = catch (withSocketActivationM set f) $
-  \(ex :: SocketActivationException) -> error $ show ex
-
+  \(ex :: SocketActivationException) -> case ex of
+     NoSocketsActivated -> maybe (error $ show ex) (return) (sasFallbackResult set)
+     _                  -> error $ show ex
 
 -- | Wrapper for socket-activated function.
 withSocketActivationM :: (MonadIO m, MonadThrow m)
-  => SocketActivationSettings
+  => SocketActivationSettings a
   -> (Socket -> IO a)
   -> m a
 withSocketActivationM set f = getSocket set >>= \socket -> liftIO $ bracket (return socket) close f
 
 
-getSocket :: (MonadIO m, MonadThrow m)
-  => SocketActivationSettings
+getSocket :: forall a m. (MonadIO m, MonadThrow m)
+  => SocketActivationSettings a
   -> m Socket
 getSocket (SocketActivationSettings {..}) = (liftIO getActivatedSockets) >>= \case
   Nothing -> ($ sasPort) $ maybe
